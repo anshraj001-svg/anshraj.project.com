@@ -1,0 +1,918 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Shadow Katana: Japanese Edition</title>
+<style>
+    * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; }
+    body { background: #08060f; color: #fff; font-family: 'Segoe UI', Tahoma, sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; overflow: hidden; }
+    #game-container { position: relative; width: 900px; height: 500px; background: #000; border: 3px solid #b71c1c; box-shadow: 0 0 35px rgba(183, 28, 28, 0.45); border-radius: 10px; overflow: hidden; }
+    canvas { display: block; width: 100%; height: 100%; }
+    
+    #hud { position: absolute; top: 0; left: 0; width: 100%; padding: 12px 18px; display: flex; justify-content: space-between; align-items: flex-start; z-index: 10; pointer-events: none; }
+    .fighter-hud { width: 34%; display: flex; flex-direction: column; gap: 4px; }
+    .fighter-hud.right { align-items: flex-end; }
+    .fighter-name { font-size: 13px; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase; text-shadow: 0 0 8px #000; color: #ff8a80; }
+    .bar-bg { width: 100%; height: 14px; background: rgba(15, 12, 25, 0.85); border: 1.5px solid rgba(255, 255, 255, 0.25); border-radius: 7px; overflow: hidden; position: relative; }
+    .bar-fill { height: 100%; width: 100%; transition: width 0.12s ease-out; }
+    .hp-fill { background: linear-gradient(90deg, #b71c1c, #ff5252); }
+    .special-fill { background: linear-gradient(90deg, #7b1fa2, #00e5ff); }
+    
+    .hud-controls-group { display: flex; gap: 8px; pointer-events: auto; }
+    .hud-btn { background: rgba(30, 18, 50, 0.85); border: 1.5px solid #b71c1c; color: #ff8a80; font-weight: 700; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 11px; letter-spacing: 1px; transition: 0.2s; }
+    .hud-btn:hover { background: #b71c1c; color: #fff; box-shadow: 0 0 12px #b71c1c; }
+    
+    .screen-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(8, 4, 12, 0.95); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 20; padding: 20px; }
+    .hidden { display: none !important; }
+    
+    h1 { font-size: 30px; letter-spacing: 4px; color: #ff8a80; text-shadow: 0 0 16px #b71c1c; margin-bottom: 4px; text-transform: uppercase; font-weight: 900; }
+    p.subtitle { font-size: 12px; color: #b0bec5; margin-bottom: 14px; letter-spacing: 0.5px; text-align: center; max-width: 650px; }
+    
+    .btn-group { display: flex; gap: 14px; margin-top: 8px; }
+    .menu-btn { background: linear-gradient(135deg, #880e4f, #b71c1c); border: none; color: #fff; padding: 10px 24px; font-size: 13px; font-weight: bold; border-radius: 6px; cursor: pointer; letter-spacing: 1.5px; transition: 0.2s; box-shadow: 0 4px 14px rgba(0,0,0,0.5); }
+    .menu-btn:hover { transform: translateY(-2px); background: linear-gradient(135deg, #ad1457, #c62828); box-shadow: 0 0 18px #ff5252; }
+    .menu-btn:disabled { background: #2a1f3d; color: #666; cursor: not-allowed; box-shadow: none; transform: none; }
+    
+    .card-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; width: 100%; max-width: 750px; margin-bottom: 14px; }
+    .story-grid { grid-template-columns: repeat(4, 1fr); max-width: 850px; }
+    .select-card { background: rgba(25, 16, 40, 0.8); border: 2px solid #5e1c96; border-radius: 8px; padding: 10px; text-align: center; cursor: pointer; transition: 0.25s; position: relative; }
+    .select-card:hover, .select-card.active { border-color: #ff5252; background: rgba(60, 20, 40, 0.95); box-shadow: 0 0 18px rgba(255, 82, 82, 0.45); transform: translateY(-3px); }
+    .select-card.locked { opacity: 0.4; cursor: not-allowed; border-color: #333 !important; box-shadow: none !important; transform: none !important; }
+    .select-card h3 { font-size: 14px; color: #ff8a80; margin-bottom: 3px; font-weight: 700; }
+    .select-card p { font-size: 10px; color: #cfd8dc; line-height: 1.3; }
+
+    .story-box { background: rgba(20, 14, 32, 0.9); border: 1.5px solid #ff5252; border-radius: 8px; padding: 16px; width: 100%; max-width: 600px; margin-bottom: 14px; text-align: center; }
+    .story-box h2 { font-size: 18px; color: #ff8a80; margin-bottom: 8px; text-transform: uppercase; }
+    .story-box p { font-size: 12px; color: #e1bee7; line-height: 1.5; }
+
+    .shop-container { background: rgba(20, 14, 32, 0.85); border: 1.5px solid #b71c1c; border-radius: 8px; padding: 14px; width: 100%; max-width: 520px; margin-bottom: 12px; }
+    .shop-row { display: flex; justify-content: space-between; align-items: center; margin: 6px 0; font-size: 12px; color: #e1bee7; }
+    .buy-btn { background: #ff5252; color: #000; border: none; font-weight: bold; padding: 4px 10px; border-radius: 4px; cursor: pointer; transition: 0.2s; }
+    .buy-btn:hover { background: #fff; box-shadow: 0 0 10px #ff5252; }
+
+    .controls-panel { background: rgba(20, 14, 32, 0.85); border: 1px solid #b71c1c; border-radius: 8px; padding: 8px 14px; margin-top: 6px; text-align: center; }
+    .controls-panel p { font-size: 10px; color: #ff8a80; margin: 2px 0; font-weight: 600; }
+    
+    #mobile-controls { position: absolute; bottom: 10px; left: 0; width: 100%; display: flex; justify-content: space-between; padding: 0 20px; z-index: 15; pointer-events: none; }
+    .touch-cluster { display: flex; gap: 8px; pointer-events: auto; }
+    .t-btn { width: 44px; height: 44px; background: rgba(30, 20, 50, 0.7); border: 1.5px solid rgba(255,255,255,0.3); border-radius: 50%; color: #fff; font-weight: bold; font-size: 12px; display: flex; align-items: center; justify-content: center; }
+    .t-btn:active { background: #b71c1c; border-color: #ff5252; }
+</style>
+</head>
+<body>
+
+<div id="game-container">
+    <canvas id="gameCanvas" width="900" height="500"></canvas>
+    
+    <div id="hud">
+        <div class="fighter-hud">
+            <div class="fighter-name" id="player-hud-name">Samurai (Lv.1)</div>
+            <div class="bar-bg"><div class="bar-fill hp-fill" id="p-hp"></div></div>
+            <div class="bar-bg" style="height:6px; margin-top:2px;"><div class="bar-fill special-fill" id="p-special"></div></div>
+        </div>
+        
+        <div class="hud-controls-group">
+            <button class="hud-btn" id="music-btn" onclick="toggleMusic()">MUSIC: OFF</button>
+            <button class="hud-btn" onclick="openMenu()">MENU [ESC]</button>
+        </div>
+        
+        <div class="fighter-hud right">
+            <div class="fighter-name" id="enemy-hud-name">Class Monitor</div>
+            <div class="bar-bg"><div class="bar-fill hp-fill" id="e-hp"></div></div>
+        </div>
+    </div>
+
+    <!-- MAIN MENU -->
+    <div id="main-menu" class="screen-overlay">
+        <h1>Shadow Katana</h1>
+        <p class="subtitle">Japanese Dojo Campaign Edition</p>
+        <div class="btn-group">
+            <button class="menu-btn" onclick="showScreen('class-select')">SELECT HERO</button>
+            <button class="menu-btn" onclick="showScreen('dojo-screen')">WEAPON FORGE</button>
+        </div>
+        <div class="controls-panel">
+            <p>🎮 <strong>Move:</strong> Arrow Keys / A D | <strong>Jump:</strong> W / Up | <strong>Block/Parry:</strong> S / Down</p>
+            <p>⚔️ <strong>Attack:</strong> SPACEBAR (9 Base DMG) | 🗡️ <strong>Up-Slash (35% Crit):</strong> Q | ⚡ <strong>Special:</strong> SHIFT</p>
+        </div>
+    </div>
+
+    <!-- DOJO FORGE SCREEN -->
+    <div id="dojo-screen" class="screen-overlay hidden">
+        <h1>Weapon Forge & Armory</h1>
+        <p class="subtitle" id="player-status-sub">Level: 1 | XP: 0 / 100 | Shadow Coins: 0</p>
+        <div class="shop-container">
+            <div class="shop-row">
+                <span>Weapon Level (<strong id="shop-weapon">Weapon I (+1 DMG)</strong>)</span>
+                <button class="buy-btn" id="forge-weapon-btn" onclick="forgeWeapon()">Forge Next Weapon (60 Coins)</button>
+            </div>
+            <div class="shop-row">
+                <span>Armor Level (<strong id="shop-armor">Shadow Gi</strong>)</span>
+                <button class="buy-btn" id="upgrade-armor-btn" onclick="buyArmor()">Upgrade Armor (50 Coins)</button>
+            </div>
+            <div class="shop-row">
+                <span>Unlock <strong>Eclipse Monarch Form</strong></span>
+                <button class="buy-btn" id="monarch-buy-btn" onclick="buyUpgrade('monarch')">Unlock (200 Coins)</button>
+            </div>
+        </div>
+        <button class="menu-btn" onclick="showScreen('main-menu')">BACK TO MENU</button>
+    </div>
+
+    <!-- CLASS SELECT -->
+    <div id="class-select" class="screen-overlay hidden">
+        <h1>Select Hero Class</h1>
+        <p class="subtitle">Pick your Japanese shadow warrior archetype</p>
+        <div class="card-grid">
+            <div class="select-card active" id="card-samurai" onclick="selectClass('samurai')">
+                <h3>Samurai</h3>
+                <p>Katana Master<br>Lightning Strike</p>
+            </div>
+            <div class="select-card" id="card-mage" onclick="selectClass('mage')">
+                <h3>Fire Mage</h3>
+                <p>Flame Mystic<br>Dark Meteor</p>
+            </div>
+            <div class="select-card" id="card-ninja" onclick="selectClass('ninja')">
+                <h3>Shadow Ninja</h3>
+                <p>Swift Assassin<br>Shuriken Storm</p>
+            </div>
+        </div>
+        <button class="menu-btn" onclick="showScreen('story-map')">ENTER THE DOJO PATH</button>
+    </div>
+
+    <!-- STORY MAP SCREEN -->
+    <div id="story-map" class="screen-overlay hidden">
+        <h1>Campaign Progression Map</h1>
+        <p class="subtitle">Defeat opponents in order to advance through the Japanese feudal story path!</p>
+        <div class="card-grid story-grid" id="story-grid-container"></div>
+        <button class="menu-btn" id="start-story-btn" onclick="openCutscene()">START CHAPTER</button>
+    </div>
+
+    <!-- CUTSCENE OVERLAY -->
+    <div id="cutscene-screen" class="screen-overlay hidden">
+        <div class="story-box">
+            <h2 id="cutscene-title">Chapter Title</h2>
+            <p id="cutscene-text">Cutscene Dialogue...</p>
+        </div>
+        <button class="menu-btn" onclick="startBattle()">ENGAGE IN DUEL</button>
+    </div>
+
+    <!-- Mobile Touch Controls -->
+    <div id="mobile-controls">
+        <div class="touch-cluster">
+            <div class="t-btn" id="tb-left">◄</div>
+            <div class="t-btn" id="tb-right">►</div>
+            <div class="t-btn" id="tb-up">▲</div>
+            <div class="t-btn" id="tb-block" style="background:rgba(0,180,210,0.6);">DEF</div>
+        </div>
+        <div class="touch-cluster">
+            <div class="t-btn" id="tb-dash" style="background:rgba(210,180,0,0.6);">DASH</div>
+            <div class="t-btn" id="tb-up-slash" style="background:rgba(210,120,0,0.7); width:44px; height:44px;">Q</div>
+            <div class="t-btn" id="tb-atk" style="background:rgba(180,30,30,0.7); width:50px; height:50px;">ATK</div>
+            <div class="t-btn" id="tb-spec" style="background:rgba(120,20,180,0.7); width:50px; height:50px;">SPEC</div>
+        </div>
+    </div>
+</div>
+
+<script>
+const AudioSys = {
+    ctx: null, musicPlaying: false, musicTimer: null,
+    scale: [220, 246.94, 277.18, 329.63, 369.99, 440],
+    init() { if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)(); },
+    playTone(freq, duration, type='sine', volume=0.1) {
+        if (!this.ctx) return;
+        try {
+            const osc = this.ctx.createOscillator(), gain = this.ctx.createGain();
+            osc.type = type; osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+            gain.gain.setValueAtTime(volume, this.ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + duration);
+            osc.connect(gain); gain.connect(this.ctx.destination);
+            osc.start(); osc.stop(this.ctx.currentTime + duration);
+        } catch(e) {}
+    },
+    slash() { this.playTone(420, 0.08, 'sawtooth', 0.15); },
+    upslash() { this.playTone(560, 0.1, 'sawtooth', 0.18); },
+    hit() { this.playTone(110, 0.12, 'square', 0.2); },
+    parry() { this.playTone(880, 0.25, 'sine', 0.3); },
+    special() { this.playTone(700, 0.4, 'sine', 0.25); },
+    thunder() { this.playTone(80, 0.6, 'sawtooth', 0.35); },
+    toggleMusic() {
+        this.init();
+        this.musicPlaying = !this.musicPlaying;
+        document.getElementById('music-btn').innerText = this.musicPlaying ? "MUSIC: ON" : "MUSIC: OFF";
+        if (this.musicPlaying) {
+            this.musicTimer = setInterval(() => {
+                if (!this.musicPlaying) return;
+                const note = this.scale[Math.floor(Math.random() * this.scale.length)];
+                this.playTone(note, 0.2, 'sine', 0.04);
+            }, 300);
+        } else { clearInterval(this.musicTimer); }
+    }
+};
+function toggleMusic() { AudioSys.toggleMusic(); }
+
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const GROUND_Y = 400;
+let inGame = false;
+let screenShake = 0;
+let screenFlash = 0;
+
+/* 6 Weapons with exact extra damage progression (+1 to +12) */
+const WEAPONS = [
+    { name: 'Weapon I (+1 DMG)', extraDmg: 1, glowColor: '#e0e0e0', length: 32 },
+    { name: 'Weapon II (+2 DMG)', extraDmg: 2, glowColor: '#00e5ff', length: 34 },
+    { name: 'Weapon III (+3 DMG)', extraDmg: 3, glowColor: '#76ff03', length: 36 },
+    { name: 'Weapon IV (+4 DMG)', extraDmg: 4, glowColor: '#ff9100', length: 38 },
+    { name: 'Weapon V (+5 DMG)', extraDmg: 5, glowColor: '#ff1744', length: 40 },
+    { name: 'Weapon VI (+12 DMG)', extraDmg: 12, glowColor: '#d500f9', length: 46 }
+];
+
+const ARMORS = [
+    { name: 'Shadow Gi', hpBonus: 0, outlineColor: 'transparent' },
+    { name: 'Samurai Cuirass', hpBonus: 50, outlineColor: '#ff5252' },
+    { name: 'Monarch Shadow Plate', hpBonus: 120, outlineColor: '#d500f9' }
+];
+
+let playerStats = {
+    level: 1, xp: 0, coins: 0,
+    weaponIndex: 0, armorIndex: 0,
+    unlockedMonarch: false, useMonarch: false,
+    storyProgress: 0
+};
+
+let selectedClass = 'samurai';
+let selectedChapterIndex = 0;
+
+/* Bosses & Enemies with 100 to 350 HP pools */
+const CAMPAIGN = [
+    { id: 'm1', name: 'Class Monitor', hp: 110, speed: 1.8, dmg: 8, auraColor: '#00e5ff', bgSky: '#12071a', weaponIdx: 0, armorIdx: 0, dialogue: "Class Monitor: 'Halt! Prove your martial honor before passing through the temple gates!'" },
+    { id: 'm2', name: 'Class Topper', hp: 140, speed: 2.0, dmg: 10, auraColor: '#ffeb3b', bgSky: '#1a0b12', weaponIdx: 1, armorIdx: 0, dialogue: "Class Topper: 'Your tactical blade form lacks discipline. Prepare for dismissal!'" },
+    { id: 'm3', name: 'Backbencher', hp: 175, speed: 2.2, dmg: 12, auraColor: '#ff9100', bgSky: '#22080d', dialogue: "Backbencher: 'You think textbooks prepared you for a true shadow duel? Let's see!'" },
+    { id: 'b1', name: 'Botha', hp: 210, speed: 2.1, dmg: 14, auraColor: '#76ff03', bgSky: '#180a24', weaponIdx: 2, armorIdx: 1, dialogue: "Botha: 'Novice shadow warrior! My twin blades will test your resolve!'" },
+    { id: 'b2', name: 'Patha', hp: 250, speed: 2.4, dmg: 16, auraColor: '#ff9100', bgSky: '#22080d', weaponIdx: 3, armorIdx: 1, dialogue: "Patha: 'My amber stance is carved into the ancient temple stones. Fall back!'" },
+    { id: 'b3', name: 'Ghodi', hp: 300, speed: 2.7, dmg: 19, auraColor: '#ff1744', bgSky: '#2a0505', weaponIdx: 4, armorIdx: 2, dialogue: "Ghodi: 'I am General Ghodi! My aerial strikes will shatter your blade!'" },
+    { id: 'b4', name: 'Mukha', hp: 350, speed: 3.2, dmg: 22, auraColor: '#d500f9', bgSky: '#09031a', weaponIdx: 5, armorIdx: 2, dialogue: "Mukha: 'At last, a worthy challenger enters my moonlit domain. Face Overlord Mukha!'" }
+];
+
+let projectiles = [];
+let particles = [];
+let visualEffects = [];
+let floatingTexts = [];
+
+class Fighter {
+    constructor(x, isPlayer = false) {
+        this.x = x; this.y = GROUND_Y;
+        this.vx = 0; this.vy = 0;
+        this.isPlayer = isPlayer;
+        this.hp = 150; this.maxHp = 150;
+        this.specialGauge = 0;
+        this.isGrounded = true;
+        this.facingRight = isPlayer;
+        this.animState = 'idle';
+        this.animTimer = 0;
+        this.atkCooldown = 0;
+        this.parryWindow = 0;
+        this.comboHits = 0;
+        this.comboTimer = 0;
+        this.afterimages = [];
+        this.auraColor = '#00e5ff';
+        this.inRageMode = false;
+        
+        this.weaponIndex = 0;
+        this.armorIndex = 0;
+        this.runCycle = 0;
+        
+        this.aiState = 'chase';
+        this.aiTimer = 0;
+    }
+
+    reset(hpVal, auraColor='#00e5ff', weaponIndex=0, armorIndex=0) {
+        this.hp = hpVal; this.maxHp = hpVal;
+        this.specialGauge = 0;
+        this.x = this.isPlayer ? 220 : 680; 
+        this.y = GROUND_Y;
+        this.vx = 0; this.vy = 0;
+        this.isGrounded = true;
+        this.animState = 'idle';
+        this.animTimer = 0;
+        this.parryWindow = 0;
+        this.comboHits = 0;
+        this.afterimages = [];
+        this.auraColor = auraColor;
+        this.inRageMode = false;
+        this.weaponIndex = weaponIndex;
+        this.armorIndex = armorIndex;
+        this.runCycle = 0;
+        this.aiState = 'chase';
+        this.aiTimer = 0;
+    }
+}
+
+let player = new Fighter(220, true);
+let enemy = new Fighter(680, false);
+
+let keys = {};
+let specialKeyPressed = false;
+let upslashKeyPressed = false;
+
+window.addEventListener('keydown', (e) => {
+    AudioSys.init();
+    if (!e.repeat) {
+        keys[e.key] = true;
+        if (e.key === 'Shift') specialKeyPressed = true;
+        if (e.key === 'q' || e.key === 'Q') upslashKeyPressed = true;
+    }
+    if (e.key === 'Escape') openMenu();
+    if (e.key === ' ' || e.key === 'Spacebar') e.preventDefault();
+});
+
+window.addEventListener('keyup', (e) => {
+    keys[e.key] = false;
+    if (e.key === 'Shift') specialKeyPressed = false;
+    if (e.key === 'q' || e.key === 'Q') upslashKeyPressed = false;
+});
+
+function clearInputs() { keys = {}; specialKeyPressed = false; upslashKeyPressed = false; }
+
+function setupTouch(id, keyName) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('touchstart', (e) => { 
+        e.preventDefault(); keys[keyName] = true; 
+        if (keyName === 'Shift') specialKeyPressed = true;
+        if (keyName === 'q') upslashKeyPressed = true;
+    });
+    el.addEventListener('touchend', (e) => { 
+        e.preventDefault(); keys[keyName] = false; 
+        if (keyName === 'Shift') specialKeyPressed = false;
+        if (keyName === 'q') upslashKeyPressed = false;
+    });
+}
+setupTouch('tb-left', 'ArrowLeft'); setupTouch('tb-right', 'ArrowRight'); setupTouch('tb-up', 'ArrowUp');
+setupTouch('tb-block', 's'); setupTouch('tb-dash', 'Alt'); setupTouch('tb-up-slash', 'q'); setupTouch('tb-atk', ' '); setupTouch('tb-spec', 'Shift');
+
+function showScreen(screenId) {
+    clearInputs();
+    document.querySelectorAll('.screen-overlay').forEach(el => el.classList.add('hidden'));
+    if (screenId) document.getElementById(screenId).classList.remove('hidden');
+    if (screenId === 'dojo-screen') updateDojoUI();
+    if (screenId === 'story-map') renderStoryMap();
+}
+
+function openMenu() { inGame = false; showScreen('main-menu'); }
+
+function selectClass(cls) {
+    selectedClass = cls;
+    document.querySelectorAll('#class-select .select-card').forEach(c => c.classList.remove('active'));
+    document.getElementById(`card-${cls}`).classList.add('active');
+    document.getElementById('player-hud-name').innerText = (playerStats.useMonarch ? "MONARCH" : cls.toUpperCase()) + ` (Lv.${playerStats.level})`;
+}
+
+function renderStoryMap() {
+    const container = document.getElementById('story-grid-container');
+    container.innerHTML = '';
+    CAMPAIGN.forEach((ch, idx) => {
+        const isUnlocked = idx <= playerStats.storyProgress;
+        const card = document.createElement('div');
+        card.className = `select-card ${isUnlocked ? '' : 'locked'} ${idx === selectedChapterIndex ? 'active' : ''}`;
+        card.onclick = () => { if (isUnlocked) { selectedChapterIndex = idx; renderStoryMap(); } };
+        card.innerHTML = `<h3>${ch.name}</h3><p>HP: ${ch.hp}<br>${isUnlocked ? (idx < playerStats.storyProgress ? 'CLEARED' : 'UNLOCKED') : 'LOCKED'}</p>`;
+        container.appendChild(card);
+    });
+}
+
+function openCutscene() {
+    const ch = CAMPAIGN[selectedChapterIndex];
+    document.getElementById('cutscene-title').innerText = `CHAPTER ${selectedChapterIndex + 1}: ${ch.name}`;
+    document.getElementById('cutscene-text').innerText = ch.dialogue;
+    showScreen('cutscene-screen');
+}
+
+function updateDojoUI() {
+    document.getElementById('player-status-sub').innerText = `Level: ${playerStats.level} | XP: ${playerStats.xp} / 100 | Shadow Coins: ${playerStats.coins}`;
+    document.getElementById('shop-weapon').innerText = WEAPONS[playerStats.weaponIndex].name;
+    document.getElementById('shop-armor').innerText = ARMORS[playerStats.armorIndex].name;
+    
+    document.getElementById('forge-weapon-btn').disabled = playerStats.weaponIndex >= WEAPONS.length - 1;
+    document.getElementById('upgrade-armor-btn').disabled = playerStats.armorIndex >= ARMORS.length - 1;
+
+    if (playerStats.unlockedMonarch) {
+        document.getElementById('monarch-buy-btn').innerText = playerStats.useMonarch ? "EQUIPPED" : "EQUIP FORM";
+    }
+}
+
+function addXP(amount) {
+    playerStats.xp += amount;
+    if (playerStats.xp >= 100) {
+        playerStats.xp -= 100;
+        playerStats.level++;
+        if (playerStats.level === 30) {
+            alert("🌟 CONGRATULATIONS! You reached Level 30 and unlocked the SECRET ULTIMATE MOVE!");
+        }
+    }
+    updateDojoUI();
+}
+
+function forgeWeapon() {
+    if (playerStats.coins >= 60 && playerStats.weaponIndex < WEAPONS.length - 1) {
+        playerStats.coins -= 60;
+        playerStats.weaponIndex++;
+    }
+    updateDojoUI();
+}
+
+function buyArmor() {
+    if (playerStats.coins >= 50 && playerStats.armorIndex < ARMORS.length - 1) {
+        playerStats.coins -= 50;
+        playerStats.armorIndex++;
+    }
+    updateDojoUI();
+}
+
+function buyUpgrade(type) {
+    if (type === 'monarch') {
+        if (!playerStats.unlockedMonarch && playerStats.coins >= 200) {
+            playerStats.coins -= 200; playerStats.unlockedMonarch = true; playerStats.useMonarch = true;
+        } else if (playerStats.unlockedMonarch) {
+            playerStats.useMonarch = !playerStats.useMonarch;
+        }
+    }
+    updateDojoUI();
+}
+
+function startBattle() {
+    clearInputs();
+    showScreen(null);
+    const ch = CAMPAIGN[selectedChapterIndex];
+    let pAura = playerStats.useMonarch ? '#00e5ff' : (selectedClass === 'mage' ? '#ff9800' : '#ab47bc');
+    
+    let basePlayerHp = 150 + ARMORS[playerStats.armorIndex].hpBonus;
+    player.reset(basePlayerHp, pAura, playerStats.weaponIndex, playerStats.armorIndex);
+    
+    let baseEnemyHp = ch.hp + ARMORS[ch.armorIndex].hpBonus;
+    enemy.reset(baseEnemyHp, ch.auraColor, ch.weaponIdx, ch.armorIdx);
+    document.getElementById('enemy-hud-name').innerText = ch.name;
+    
+    projectiles = []; particles = []; visualEffects = []; floatingTexts = [];
+    inGame = true;
+}
+
+function update() {
+    if (!inGame) return;
+
+    let moving = false;
+    if (player.animState !== 'block') {
+        if (keys['ArrowLeft'] || keys['a'] || keys['A']) { player.x -= 4.5; player.facingRight = false; moving = true; }
+        if (keys['ArrowRight'] || keys['d'] || keys['D']) { player.x += 4.5; player.facingRight = true; moving = true; }
+        if ((keys['ArrowUp'] || keys['w'] || keys['W']) && player.isGrounded) { player.vy = -13; player.isGrounded = false; }
+    }
+
+    if (moving && player.isGrounded) {
+        player.runCycle += 0.25;
+        if (player.animState === 'idle') player.animState = 'run';
+    } else if (player.isGrounded && player.animState === 'run') {
+        player.animState = 'idle';
+    }
+
+    if (keys['ArrowDown'] || keys['s'] || keys['S']) {
+        if (player.animState !== 'block') { player.animState = 'block'; player.parryWindow = 12; }
+    } else if (player.animState === 'block') { player.animState = 'idle'; }
+
+    if (player.parryWindow > 0) player.parryWindow--;
+
+    if (keys['Alt'] && player.animState !== 'dash' && player.animTimer <= 0) {
+        player.animState = 'dash'; player.animTimer = 14;
+        player.x += player.facingRight ? 85 : -85;
+        player.afterimages.push({ x: player.x, y: player.y, alpha: 0.8 });
+    }
+
+    let currentSpecGain = 15 + playerStats.level;
+    let weaponExtraDmg = WEAPONS[player.weaponIndex].extraDmg;
+    let standardAtkDamage = 9 + weaponExtraDmg;
+
+    // Q KEY: Upward Sword Slash (35% Critical Hit Chance)
+    if (upslashKeyPressed && player.atkCooldown <= 0 && player.animState !== 'block') {
+        upslashKeyPressed = false;
+        player.atkCooldown = 22;
+        player.animState = 'upslash';
+        player.animTimer = 16;
+        AudioSys.upslash();
+
+        if (Math.abs(player.x - enemy.x) < 80 && Math.abs(player.y - enemy.y) < 65) {
+            let isCrit = Math.random() < 0.35; // 35% Chance of Crit
+            let upDmg = Math.round((standardAtkDamage * 1.5) * (isCrit ? 2 : 1));
+            
+            enemy.hp -= upDmg;
+            enemy.vy = -8;
+            enemy.isGrounded = false;
+            player.specialGauge = Math.min(100, player.specialGauge + currentSpecGain);
+            AudioSys.hit();
+            spawnSparks(enemy.x, enemy.y - 45, isCrit ? '#ff0055' : '#ff9800', 16);
+            spawnFloatingText(enemy.x, enemy.y - 60, `-${upDmg}` + (isCrit ? " 35% CRIT!" : " UP-SLASH!"), isCrit ? '#ff0055' : '#ff9800');
+            screenShake = isCrit ? 10 : 5;
+        }
+    }
+
+    // SPACEBAR: Standard Attack (9 Base + Weapon Extra Damage)
+    if (keys[' '] || keys['Spacebar']) {
+        if (player.atkCooldown <= 0 && player.animState !== 'block') {
+            player.atkCooldown = 18; player.animState = 'attack'; player.animTimer = 12;
+            AudioSys.slash();
+
+            if (Math.abs(player.x - enemy.x) < 75 && Math.abs(player.y - enemy.y) < 40) {
+                player.comboHits++; player.comboTimer = 60;
+                let comboMult = player.comboHits >= 3 ? 1.4 : 1.0;
+                let finalDmg = Math.round(standardAtkDamage * comboMult);
+
+                enemy.hp -= finalDmg;
+                player.specialGauge = Math.min(100, player.specialGauge + currentSpecGain);
+                AudioSys.hit();
+                spawnSparks(enemy.x, enemy.y - 35, '#ffeb3b');
+                spawnFloatingText(enemy.x, enemy.y - 50, `-${finalDmg}` + (comboMult > 1 ? " COMBO!" : ""), '#ffeb3b');
+                screenShake = 4;
+            }
+        }
+    }
+
+    if (specialKeyPressed && player.specialGauge >= 100 && player.animState !== 'special') {
+        specialKeyPressed = false;
+        executeSpecialMove();
+    }
+
+    if (player.atkCooldown > 0) player.atkCooldown--;
+    if (player.comboTimer > 0) { player.comboTimer--; if (player.comboTimer <= 0) player.comboHits = 0; }
+
+    player.y += player.vy;
+    if (player.y < GROUND_Y) player.vy += 0.8;
+    else { player.y = GROUND_Y; player.vy = 0; player.isGrounded = true; }
+
+    player.x = Math.max(30, Math.min(870, player.x));
+    enemy.x = Math.max(30, Math.min(870, enemy.x));
+
+    /* Enemy AI */
+    const ch = CAMPAIGN[selectedChapterIndex];
+    let curSpeed = ch.speed * (enemy.inRageMode ? 1.35 : 1.0);
+
+    if (!enemy.inRageMode && enemy.hp < enemy.maxHp * 0.3) {
+        enemy.inRageMode = true; enemy.auraColor = '#ff0055';
+        spawnFloatingText(enemy.x, enemy.y - 60, "RAGE BURST!", '#ff0055');
+        screenShake = 12;
+    }
+
+    enemy.aiTimer--;
+    if (enemy.aiTimer <= 0) {
+        enemy.aiTimer = 90;
+        if (Math.abs(enemy.x - player.x) < 120 && Math.random() < 0.6) {
+            enemy.aiState = 'jumpback';
+            enemy.vx = enemy.facingRight ? -8 : 8;
+            enemy.vy = -10;
+            enemy.isGrounded = false;
+        } else {
+            enemy.aiState = 'chase';
+        }
+    }
+
+    if (enemy.aiState === 'jumpback') {
+        enemy.x += enemy.vx;
+        if (enemy.isGrounded) {
+            enemy.aiState = 'leap_strike';
+            enemy.vy = -13;
+            enemy.vx = (player.x > enemy.x) ? 9 : -9;
+            enemy.isGrounded = false;
+        }
+    } else if (enemy.aiState === 'leap_strike') {
+        enemy.x += enemy.vx;
+    } else {
+        if (enemy.x > player.x + 55) { enemy.x -= curSpeed; enemy.facingRight = false; enemy.runCycle += 0.2; }
+        else if (enemy.x < player.x - 55) { enemy.x += curSpeed; enemy.facingRight = true; enemy.runCycle += 0.2; }
+    }
+
+    enemy.y += enemy.vy;
+    if (enemy.y < GROUND_Y) enemy.vy += 0.8;
+    else { enemy.y = GROUND_Y; enemy.vy = 0; enemy.isGrounded = true; enemy.vx = 0; }
+
+    let baseEnemyDmg = ch.dmg;
+    if (Math.abs(player.x - enemy.x) < 65 && Math.abs(player.y - enemy.y) < 40 && Math.random() < 0.05) {
+        enemy.animState = 'attack'; enemy.animTimer = 10;
+        
+        let isCrit = enemy.aiState === 'leap_strike';
+        let dealDmg = isCrit ? baseEnemyDmg * 2 : baseEnemyDmg;
+
+        if (player.animState === 'block') {
+            if (player.parryWindow > 0) {
+                AudioSys.parry(); enemy.hp -= Math.round(standardAtkDamage * 1.8);
+                player.specialGauge = Math.min(100, player.specialGauge + 40);
+                spawnSparks(player.x, player.y - 35, '#00e5ff', 15);
+                spawnFloatingText(player.x, player.y - 50, "PERFECT PARRY!", '#00e5ff');
+                screenShake = 8;
+            } else {
+                let blockDmg = Math.round(dealDmg * 0.25);
+                player.hp -= blockDmg; AudioSys.hit();
+                spawnFloatingText(player.x, player.y - 40, `BLOCKED -${blockDmg}`, '#cfd8dc');
+            }
+        } else if (player.animState !== 'dash') {
+            player.hp -= dealDmg; AudioSys.hit();
+            spawnSparks(player.x, player.y - 35, enemy.auraColor);
+            spawnFloatingText(player.x, player.y - 40, `-${dealDmg}` + (isCrit ? " 2x CRIT!" : ""), isCrit ? '#ff0055' : '#ff1744');
+            screenShake = isCrit ? 10 : 4;
+        }
+    }
+
+    updateProjectiles(); updateVisualEffects(); updateFloatingTexts();
+
+    if (player.afterimages.length > 0) {
+        player.afterimages.forEach(img => img.alpha -= 0.05);
+        player.afterimages = player.afterimages.filter(img => img.alpha > 0);
+    }
+
+    if (player.animTimer > 0) player.animTimer--;
+    if (enemy.animTimer > 0) enemy.animTimer--;
+    if (screenShake > 0) screenShake--;
+    if (screenFlash > 0) screenFlash--;
+
+    document.getElementById('p-hp').style.width = `${Math.max(0, (player.hp / player.maxHp) * 100)}%`;
+    document.getElementById('p-special').style.width = `${player.specialGauge}%`;
+    document.getElementById('e-hp').style.width = `${Math.max(0, (enemy.hp / enemy.maxHp) * 100)}%`;
+
+    if (enemy.hp <= 0) {
+        clearInputs();
+        let earnedCoins = (selectedChapterIndex + 1) * 30;
+        playerStats.coins += earnedCoins;
+        addXP(100);
+
+        if (selectedChapterIndex === playerStats.storyProgress && playerStats.storyProgress < CAMPAIGN.length - 1) {
+            playerStats.storyProgress++;
+        }
+
+        alert(`VICTORY! Chapter Cleared!\nEarned +100 XP and +${earnedCoins} Shadow Coins!`);
+        inGame = false;
+        showScreen('story-map');
+    } else if (player.hp <= 0) {
+        clearInputs();
+        addXP(10);
+        alert(`DEFEAT! Earned +10 XP. Forge stronger weapons in the Armory and retry!`);
+        inGame = false;
+        showScreen('story-map');
+    }
+}
+
+function executeSpecialMove() {
+    player.specialGauge = 0; player.animState = 'special'; player.animTimer = 35;
+    AudioSys.special();
+
+    let weaponExtra = WEAPONS[player.weaponIndex].extraDmg;
+    let skillDmg = playerStats.useMonarch ? (35 + weaponExtra * 2) : (28 + weaponExtra * 2);
+
+    if (playerStats.level >= 30) {
+        visualEffects.push({ type: 'lightning', x: enemy.x, y: enemy.y, life: 25 });
+        let ultDmg = skillDmg * 2;
+        enemy.hp -= ultDmg; screenShake = 20; screenFlash = 8;
+        AudioSys.thunder();
+        spawnFloatingText(enemy.x, enemy.y - 70, `-${ultDmg} ULTIMATE!`, '#00e5ff');
+    } else if (selectedClass === 'samurai' || playerStats.useMonarch) {
+        player.afterimages.push({ x: player.x, y: player.y, alpha: 0.8 });
+        player.x = enemy.x + (player.facingRight ? -40 : 40);
+        visualEffects.push({ type: 'lightning', x: enemy.x, y: enemy.y, life: 25 });
+        enemy.hp -= skillDmg; screenShake = 14; screenFlash = 5;
+        AudioSys.thunder();
+        spawnFloatingText(enemy.x, enemy.y - 60, `-${skillDmg} LIGHTNING!`, '#00e5ff');
+    } else if (selectedClass === 'mage') {
+        visualEffects.push({ type: 'meteor', x: enemy.x, y: 0, targetY: GROUND_Y, radius: 35, life: 40, dmg: skillDmg + 4 });
+    } else if (selectedClass === 'ninja') {
+        visualEffects.push({ type: 'clones', x: enemy.x, y: enemy.y, life: 30 });
+        let perShuriken = Math.max(6, Math.round(skillDmg / 5));
+        for (let i = 0; i < 5; i++) {
+            projectiles.push({ x: player.x, y: player.y - 35 - (i * 8), vx: player.facingRight ? (11 + i) : -(11 + i), damage: perShuriken });
+        }
+    }
+}
+
+function updateProjectiles() {
+    projectiles.forEach((p, idx) => {
+        p.x += p.vx;
+        if (Math.abs(p.x - enemy.x) < 35 && Math.abs(p.y - (enemy.y - 30)) < 40) {
+            enemy.hp -= p.damage; projectiles.splice(idx, 1);
+            spawnSparks(enemy.x, enemy.y - 35, '#00e5ff', 8);
+            spawnFloatingText(enemy.x, enemy.y - 40, `-${p.damage}`, '#00e5ff');
+        }
+        if (p.x < 0 || p.x > 900) projectiles.splice(idx, 1);
+    });
+}
+
+function updateVisualEffects() {
+    visualEffects.forEach((fx, idx) => {
+        fx.life--;
+        if (fx.type === 'meteor') {
+            fx.y += 12;
+            if (fx.y >= fx.targetY) {
+                enemy.hp -= fx.dmg; screenShake = 16; screenFlash = 6;
+                AudioSys.thunder(); spawnSparks(enemy.x, GROUND_Y - 20, '#ff5722', 30);
+                spawnFloatingText(enemy.x, enemy.y - 60, `-${fx.dmg} METEOR!`, '#ff5722');
+                visualEffects.splice(idx, 1);
+            }
+        } else if (fx.life <= 0) { visualEffects.splice(idx, 1); }
+    });
+}
+
+function updateFloatingTexts() {
+    floatingTexts.forEach((ft, idx) => { ft.y -= 1; ft.life--; if (ft.life <= 0) floatingTexts.splice(idx, 1); });
+}
+
+function spawnSparks(x, y, color, count = 10) {
+    for (let i = 0; i < count; i++) {
+        particles.push({ x, y, vx: (Math.random() - 0.5) * 8, vy: (Math.random() - 0.5) * 8, color, life: 18 });
+    }
+}
+
+function spawnFloatingText(x, y, text, color) { floatingTexts.push({ x, y, text, color, life: 30 }); }
+
+function render() {
+    ctx.save();
+    if (screenShake > 0) ctx.translate((Math.random() - 0.5) * screenShake, (Math.random() - 0.5) * screenShake);
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Japanese Bamboo Forest & Red Sun Moon Background
+    const ch = CAMPAIGN[selectedChapterIndex];
+    let skyGradient = ctx.createLinearGradient(0, 0, 0, 500);
+    skyGradient.addColorStop(0, '#150508');
+    skyGradient.addColorStop(0.5, '#2b0a14');
+    skyGradient.addColorStop(1, '#1f0810');
+    ctx.fillStyle = skyGradient;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Giant Japanese Red Sun / Crimson Moon
+    ctx.beginPath();
+    ctx.arc(450, 130, 75, 0, Math.PI * 2);
+    ctx.fillStyle = '#d32f2f';
+    ctx.shadowColor = '#ff5252';
+    ctx.shadowBlur = 35;
+    ctx.fill();
+    ctx.shadowBlur = 0;
+
+    // Bamboo Silhouette Trees in Background
+    ctx.fillStyle = '#0e0306';
+    for (let i = 60; i < canvas.width; i += 110) {
+        ctx.fillRect(i, 150, 12, GROUND_Y - 150);
+        // Bamboo nodes
+        ctx.fillStyle = '#1b060b';
+        ctx.fillRect(i - 2, 200, 16, 4);
+        ctx.fillRect(i - 2, 270, 16, 4);
+        ctx.fillRect(i - 2, 340, 16, 4);
+        ctx.fillStyle = '#0e0306';
+    }
+
+    // Ground Floor Line (Tatami / Stone Base)
+    ctx.fillStyle = '#080205';
+    ctx.fillRect(0, GROUND_Y, canvas.width, 100);
+    ctx.strokeStyle = '#b71c1c';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(0, GROUND_Y); ctx.lineTo(canvas.width, GROUND_Y);
+    ctx.stroke();
+
+    player.afterimages.forEach(img => {
+        ctx.save(); ctx.globalAlpha = img.alpha;
+        drawCoolJapaneseFighter(img.x, img.y, player.facingRight, '#00e5ff', 'idle', player.weaponIndex, player.armorIndex, player.runCycle);
+        ctx.restore();
+    });
+
+    drawCoolJapaneseFighter(player.x, player.y, player.facingRight, player.auraColor, player.animState, player.weaponIndex, player.armorIndex, player.runCycle);
+    drawCoolJapaneseFighter(enemy.x, enemy.y, enemy.facingRight, enemy.auraColor, enemy.animState, enemy.weaponIndex, enemy.armorIndex, enemy.runCycle);
+
+    renderVisualEffects();
+
+    projectiles.forEach(p => {
+        ctx.fillStyle = '#00e5ff'; ctx.shadowColor = '#00e5ff'; ctx.shadowBlur = 10;
+        ctx.beginPath(); ctx.arc(p.x, p.y, 6, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0;
+    });
+
+    particles.forEach((pt, idx) => {
+        ctx.fillStyle = pt.color; ctx.fillRect(pt.x, pt.y, 3, 3);
+        pt.x += pt.vx; pt.y += pt.vy; pt.life--;
+        if (pt.life <= 0) particles.splice(idx, 1);
+    });
+
+    floatingTexts.forEach(ft => {
+        ctx.fillStyle = ft.color; ctx.font = "bold 13px Segoe UI";
+        ctx.shadowColor = '#000'; ctx.shadowBlur = 4;
+        ctx.fillText(ft.text, ft.x - 20, ft.y); ctx.shadowBlur = 0;
+    });
+
+    if (screenFlash > 0) {
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.35)'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+    ctx.restore();
+}
+
+function renderVisualEffects() {
+    visualEffects.forEach(fx => {
+        if (fx.type === 'lightning') {
+            ctx.strokeStyle = '#00e5ff'; ctx.lineWidth = 6; ctx.shadowColor = '#00e5ff'; ctx.shadowBlur = 20;
+            ctx.beginPath(); ctx.moveTo(fx.x + (Math.random() - 0.5) * 20, 0);
+            ctx.lineTo(fx.x + (Math.random() - 0.5) * 30, GROUND_Y / 2);
+            ctx.lineTo(fx.x, GROUND_Y); ctx.stroke(); ctx.shadowBlur = 0;
+        } else if (fx.type === 'meteor') {
+            ctx.fillStyle = '#ff3d00'; ctx.shadowColor = '#ff5722'; ctx.shadowBlur = 25;
+            ctx.beginPath(); ctx.arc(fx.x, fx.y, fx.radius, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0;
+        } else if (fx.type === 'clones') {
+            ctx.save(); ctx.globalAlpha = 0.6;
+            drawCoolJapaneseFighter(fx.x - 45, GROUND_Y, true, '#ab47bc', 'attack', 1, 1, 0);
+            drawCoolJapaneseFighter(fx.x + 45, GROUND_Y, false, '#ab47bc', 'attack', 1, 1, 0);
+            ctx.restore();
+        }
+    });
+}
+
+/* Taller, Cooler Japanese Silhouette & Armor Proportions */
+function drawCoolJapaneseFighter(x, y, facingRight, auraColor, state, weaponIndex, armorIndex, runCycle) {
+    ctx.save();
+    ctx.shadowColor = auraColor; ctx.shadowBlur = 14;
+
+    const feetY = y;
+    const hipY = feetY - 32;
+    const shoulderY = hipY - 34;
+    const headY = shoulderY - 16;
+
+    // Floor Shadow Ellipse
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.5);';
+    ctx.beginPath(); ctx.ellipse(x, feetY, 20, 5, 0, 0, Math.PI * 2); ctx.fill();
+
+    const armor = ARMORS[armorIndex];
+    ctx.fillStyle = '#060309';
+
+    // Kabuto / Head Banded Helmet Silhouette
+    ctx.beginPath(); ctx.arc(x, headY, 12, 0, Math.PI * 2); ctx.fill();
+    // Small Samurai Helmet Horn Crest (Wakidate)
+    ctx.fillStyle = auraColor;
+    ctx.beginPath();
+    ctx.moveTo(x, headY - 12);
+    ctx.lineTo(facingRight ? x + 8 : x - 8, headY - 20);
+    ctx.lineTo(facingRight ? x + 4 : x - 4, headY - 12);
+    ctx.fill();
+
+    ctx.fillStyle = '#060309';
+
+    // Broad Samurai Armor Torso
+    ctx.beginPath();
+    ctx.moveTo(x - 10, shoulderY); ctx.lineTo(x + 10, shoulderY);
+    ctx.lineTo(x + 7, hipY); ctx.lineTo(x - 7, hipY);
+    ctx.closePath(); ctx.fill();
+
+    if (armor.outlineColor !== 'transparent') {
+        ctx.strokeStyle = armor.outlineColor; ctx.lineWidth = 1.8;
+        ctx.strokeRect(x - 8, shoulderY + 2, 16, 22);
+    }
+
+    // Joint Swing Physics
+    let legOffset1 = Math.sin(runCycle) * 12;
+    let legOffset2 = -Math.sin(runCycle) * 12;
+
+    ctx.lineWidth = 5; ctx.strokeStyle = '#060309';
+    ctx.beginPath();
+    ctx.moveTo(x - 4, hipY); ctx.lineTo(x - 9 + legOffset1, feetY);
+    ctx.moveTo(x + 4, hipY); ctx.lineTo(x + 9 + legOffset2, feetY);
+    ctx.stroke();
+
+    // Glowing Eye Slit
+    ctx.fillStyle = auraColor;
+    const eyeX = facingRight ? x + 3 : x - 9;
+    ctx.fillRect(eyeX, headY - 2, 5, 2.5);
+
+    // Weapon Katana Render
+    const wpn = WEAPONS[weaponIndex];
+    ctx.strokeStyle = wpn.glowColor; ctx.lineWidth = 3.5;
+    ctx.shadowColor = wpn.glowColor; ctx.shadowBlur = 12;
+
+    let armEndX = facingRight ? x + wpn.length : x - wpn.length;
+    let armEndY = shoulderY - 12;
+
+    if (state === 'upslash') {
+        armEndX = facingRight ? x + 15 : x - 15;
+        armEndY = shoulderY - wpn.length - 12;
+    } else if (state === 'attack') {
+        armEndX = facingRight ? x + wpn.length + 12 : x - wpn.length - 12;
+        armEndY = shoulderY - 2;
+    } else if (state === 'block') {
+        armEndX = x;
+        armEndY = shoulderY - wpn.length;
+    }
+
+    ctx.beginPath();
+    ctx.moveTo(x, shoulderY);
+    ctx.lineTo(armEndX, armEndY);
+    ctx.stroke();
+
+    ctx.restore();
+}
+
+function loop() {
+    update();
+    render();
+    requestAnimationFrame(loop);
+}
+
+loop();
+</script>
+</body>
+</html>
